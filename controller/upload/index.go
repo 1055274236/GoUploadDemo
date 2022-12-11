@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2022-12-09 03:16:37
+ * @LastEditTime: 2022-12-10 02:16:18
  */
 package upload
 
@@ -191,7 +191,7 @@ func Upload(c *gin.Context) {
 	read_data := make([]byte, 1024*12)
 	var read_total int = 0
 	for {
-		file_header, file_data, err := ParseFromHead(read_data, read_total, append(boundary, []byte("\r\n")...), c.Request.Body)
+		file_header, _, err := ParseFromHead(read_data, read_total, append(boundary, []byte("\r\n")...), c.Request.Body)
 		if err != nil {
 			// log.Printf("%v", err)
 			UploadError(c, err.Error())
@@ -202,15 +202,15 @@ func Upload(c *gin.Context) {
 		fileDir := path.Join(config.StaticFileDir, time.Now().Format("20060102"))
 		utils.CreateNecessaryDir(fileDir)
 		f, err := os.Create(path.Join(fileDir, file_header.FileName))
-
 		if err != nil {
 			// log.Printf("create file fail:%v\n", err)
 			UploadError(c, err.Error())
 			return
 		}
+
 		// 将读取到的数据全部存储到文件中
-		f.Write(file_data)
-		file_data = nil
+		// f.Write(file_data)
+		// file_data = nil
 
 		//需要反复搜索boundary
 		temp_data, reach_end, err := ReadToBoundary(boundary, c.Request.Body, f)

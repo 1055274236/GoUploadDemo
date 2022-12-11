@@ -1,3 +1,4 @@
 vendor
 static
 test
+gin.log

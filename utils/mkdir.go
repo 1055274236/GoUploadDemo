@@ -2,13 +2,13 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2022-12-09 03:11:19
+ * @LastEditTime: 2022-12-09 03:47:28
  */
 package utils
 
 import (
 	"UploadApi/config"
-	"fmt"
+	"log"
 	"os"
 	"path"
 	"time"
@@ -30,9 +30,9 @@ func HasDir(path string) (bool, error) {
 func CreateDir(p string) {
 	err := os.MkdirAll(p, os.ModePerm)
 	if err != nil {
-		fmt.Printf("创建目录异常 -> %v\n", err)
+		log.Printf("创建目录异常 -> %v\n", err)
 	} else {
-		fmt.Println("创建成功!")
+		log.Printf("创建成功! -> %v\n", p)
 	}
 }
 
