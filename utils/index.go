@@ -2,11 +2,12 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2022-12-09 02:49:13
+ * @LastEditTime: 2022-12-14 00:50:10
  */
 package utils
 
 import (
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -36,4 +37,14 @@ func SendErrorJson(code, msg string, data interface{}, c *gin.Context) {
 // 获取当前时间戳
 func GetTimeUnix() int64 {
 	return time.Now().Unix()
+}
+
+const letterBytes = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandStringBytes(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
