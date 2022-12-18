@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2022-12-14 04:09:30
+ * @LastEditTime: 2022-12-18 23:33:19
  */
 package upload
 
@@ -89,8 +89,10 @@ func ParseFileAndSave(c *gin.Context, boundary []byte) ([]FileHeader, error) {
 			if err != io.EOF {
 				// 上传中断，删除不完整文件
 				f.Close()
-				os.Remove(filePath)
-				fileHeader = fileHeader[:len(fileHeader)-1]
+				go os.Remove(filePath)
+				if len(fileHeader) > 1 {
+					fileHeader = fileHeader[:len(fileHeader)-1]
+				}
 			}
 
 			checkFileSize(fileHeader)
