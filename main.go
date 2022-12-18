@@ -8,6 +8,7 @@ package main
 
 import (
 	"UploadApi/config"
+	"UploadApi/middleware"
 	"UploadApi/router"
 	"io"
 	"os"
@@ -20,6 +21,7 @@ func main() {
 	gin.DefaultWriter = io.MultiWriter(f)
 	gin.SetMode(config.GinRunMode)
 	engine := gin.Default()
-	router.InitRouter(engine) // 设置路由
+	middleware.InitMiddleware(engine) // 添加全局中间件
+	router.InitRouter(engine)         // 设置路由
 	engine.Run(config.PORT)
 }
