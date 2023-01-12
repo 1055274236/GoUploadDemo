@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2023-01-12 23:03:34
+ * @LastEditTime: 2023-01-12 23:07:36
  */
 package upload
 
@@ -90,7 +90,7 @@ func InsertDB(newValues []FileHeader, c *gin.Context) []ReturnInfoType {
 			Hash:        fileInfoResult.Hash,
 			ContentType: uploadRecordResult.ContentType,
 			CreatedAt:   uploadRecordResult.CreatedAt,
-			Url:         fmt.Sprintf("http://%v/download/%v/%v", c.Request.Header.Get("Host"), fileInfoResult.Folder, fileInfoResult.File),
+			Url:         fmt.Sprintf("http://%v/download/%v/%v", c.Request.Host, fileInfoResult.Folder, fileInfoResult.File),
 		}
 		returnResultArr = append(returnResultArr, returnResultItem)
 	}
