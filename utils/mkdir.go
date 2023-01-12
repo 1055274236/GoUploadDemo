@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2022-12-09 03:47:28
+ * @LastEditTime: 2023-01-11 12:10:56
  */
 package utils
 
@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -44,4 +45,29 @@ func CreateNecessaryDir(p string) {
 	if !_exist {
 		CreateDir(p)
 	}
+}
+
+func RemoveFile(p string) error {
+	var err error = nil
+	if hasFile, _ := HasDir(p); hasFile {
+		err = os.Remove(p)
+		for {
+			upDirPath := path.Dir(p)
+			// 如果已经是最后一个文件夹，则终止
+			if strings.EqualFold(upDirPath, config.StaticFileDir) {
+				break
+			}
+			// 判断该文件夹是否为空文件夹
+			if fileArr, _ := os.ReadDir(upDirPath); len(fileArr) == 0 {
+				p = upDirPath
+				err = os.Remove(upDirPath)
+			} else {
+				break
+			}
+		}
+	}
+	if err != nil {
+		log.Println(err)
+	}
+	return err
 }

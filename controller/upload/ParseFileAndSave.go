@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2022-12-18 23:33:19
+ * @LastEditTime: 2023-01-12 16:47:34
  */
 package upload
 
@@ -18,143 +18,173 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	uuid "github.com/satori/go.uuid"
 )
-
-type FileHeader struct {
-	Name          string
-	NewName       string
-	FileName      string ///< 文件名
-	FilePath      string
-	ContentType   string
-	ContentLength int
-}
 
 // 根据传递的值，建立文本流
 // @params suffix 文件后缀
 // @return 文件流
-// 新文件名称
-// 文件位置
-func createFileStream(suffix string) (*os.File, string, string) {
-	var fileName string
-	var filePath string
-	fileDir := path.Join(config.StaticFileDir, time.Now().Format("20060102"))
-
-	for {
-		fileName = utils.RandStringBytes(16) + "." + suffix
-		filePath = path.Join(fileDir, fileName)
-		flag, err := utils.HasDir(filePath)
-		if err != nil {
-			log.Println("文件流创建失败！未知错误", err)
-		}
-		if !flag {
-			break
-		}
+func createFileStream(suffix string, fileHeaderItem *FileHeader) *os.File {
+	// 新的随机名称文件
+	// 文件名
+	fileName := strings.ReplaceAll(uuid.NewV4().String(), "-", "")
+	// 文件夹名
+	fileHeaderItem.Folder = time.Now().Format("20060102")
+	// 文件夹地址
+	fileDir := path.Join(config.StaticFileDir, fileHeaderItem.Folder)
+	// 加后缀之后的文件名
+	if suffix != "" {
+		fileHeaderItem.FileName = fileName + "." + suffix
+	} else {
+		fileHeaderItem.FileName = fileName
 	}
+	// 文件储存地址
+	fileHeaderItem.FilePath = path.Join(fileDir, fileHeaderItem.FileName)
+
+	// 创建文件夹
 	utils.CreateNecessaryDir(fileDir)
-	f, _ := os.Create(filePath)
-	return f, fileName, filePath
-}
-
-// 处理文件尺寸
-func checkFileSize(fileHeader []FileHeader) {
-	// 文件尺寸赋值
-	for i := 0; i < len(fileHeader); i++ {
-		fileProperty, _ := os.Stat(fileHeader[i].FilePath)
-		fileHeader[i].ContentLength = int(fileProperty.Size())
+	f, err := os.Create(fileHeaderItem.FilePath)
+	if err != nil {
+		log.Println("文件创建失败: ", err)
+		return nil
 	}
+
+	return f
 }
 
 func ParseFileAndSave(c *gin.Context, boundary []byte) ([]FileHeader, error) {
 	var (
+		start_buff bytes.Buffer
+		end_buff   bytes.Buffer
+	)
+	start_buff.WriteString("--")
+	start_buff.Write(boundary)
+	start_buff.WriteString("\r\n")
+	end_buff.WriteString("--")
+	end_buff.Write(boundary)
+	end_buff.WriteString("--")
+
+	var (
+		isFirst        = true
+		isEnd          = false
+		oldChar        []byte
+		jointChar      []byte
 		fileHeader     []FileHeader
+		spaceCharacter = Boundary{
+			base:  boundary,
+			start: start_buff.Bytes(),
+			end:   end_buff.Bytes(),
+		}
 		fileHeaderitem FileHeader
+		f              *os.File
 	)
+
 	var (
-		NAME         = "name=\""
-		FILENAME     = "filename=\""
-		CONTENT_TYPE = "Content-Type: "
-	)
-	var (
-		f        *os.File
-		fileName string
-		filePath string
+		header_start_index = -1 // 文件头起始位置
+		header_end_index   = -1 // 文件头终止位置
+		body_end_index     = -1 // body 传输流终止位置
+		file_end_index     = -1 // 文件流终止位置
+		header_bytes       []byte
+		buf                []byte
 	)
 
 	for {
-		buf := make([]byte, 1024*12)
+		// 读取片段
+		buf = make([]byte, config.FileChunkSize)
 
 		// 数据接入
 		read_len, err := c.Request.Body.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				// 上传中断，删除不完整文件
+
+		// 文件上传终止
+		if err != nil && err != io.EOF {
+
+			if l := len(fileHeader); l > 0 {
 				f.Close()
-				go os.Remove(filePath)
-				if len(fileHeader) > 1 {
-					fileHeader = fileHeader[:len(fileHeader)-1]
-				}
+
+				go utils.RemoveFile(fileHeader[l-1].FilePath)
+				fileHeader = fileHeader[:l-1]
 			}
 
-			checkFileSize(fileHeader)
 			break
 		}
 
-		// 文件表头位置查找
-		boundary_loc := bytes.Index(buf, boundary)
-		start_loc := boundary_loc + len(boundary)
-		file_head_loc := bytes.Index(buf, []byte("\r\n\r\n"))
+		isEnd = bytes.Contains(buf[:read_len], spaceCharacter.end)
 
-		if boundary_loc > -1 && file_head_loc > -1 {
-
-			header := buf[start_loc:file_head_loc]
-
-			// 数据初始化
-			fileHeaderitem = FileHeader{}
-
-			// 解析文件头
-			// Name
-			nameIndex := bytes.Index(header, []byte(NAME))
-			seqIndex := nameIndex + bytes.Index(header[nameIndex:], []byte("\"; "))
-			if seqIndex == nameIndex-1 {
-				seqIndex = len(header)
+		if isFirst {
+			isFirst = false
+			oldChar = buf[:read_len]
+			if isEnd {
+				jointChar = oldChar
+			} else {
+				continue
 			}
-			fileHeaderitem.Name = string(header[nameIndex+len(NAME) : seqIndex])
-			// FILENAME
-			fileNameIndex := bytes.Index(header, []byte(FILENAME))
-			seqIndex = fileNameIndex + bytes.Index(header[fileNameIndex:], []byte("\"; "))
-			if seqIndex == fileNameIndex-1 {
-				seqIndex = len(header)
-			}
-			fileHeaderitem.FileName = string(header[fileNameIndex+len(FILENAME) : seqIndex])
-			// CONTENT_TYPE
-			contentTypeIndex := bytes.Index(header, []byte(CONTENT_TYPE))
-			seqIndex = contentTypeIndex + bytes.Index(header[contentTypeIndex:], []byte(";"))
-			if seqIndex == contentTypeIndex-1 {
-				seqIndex = len(header)
-			}
-			fileHeaderitem.ContentType = string(header[contentTypeIndex+len(CONTENT_TYPE) : seqIndex])
-
-			// 获取后缀
-			suffixBad := strings.Split(fileHeaderitem.FileName, ".")
-			suffix := ""
-			if len(suffixBad) > 1 {
-				suffix = suffixBad[1]
-			}
-
-			// 创建文件
-			f.Close()
-			f, fileName, filePath = createFileStream(suffix)
-			defer f.Close()
-
-			fileHeaderitem.NewName = fileName
-			fileHeaderitem.FilePath = filePath
-
-			// 对成员进行添加
-			fileHeader = append(fileHeader, fileHeaderitem)
-
 		} else {
-			// 文件数据写入
-			f.Write(buf[:read_len])
+			jointChar = append(oldChar, buf[:read_len]...)
+		}
+
+		for {
+			// 确定文件终止位置，并将终止位置之前的数据传输到 f 文件流中
+			header_start_index = bytes.Index(jointChar, spaceCharacter.start)
+
+			// 查询这次的文件块中的终止符下标
+			body_end_index = bytes.Index(jointChar, spaceCharacter.end)
+			isEnd = body_end_index != -1
+			if header_start_index > -1 {
+				file_end_index = header_start_index - 2
+			} else {
+				file_end_index = body_end_index - 2
+			}
+
+			// 写入文件流
+			if f != nil && file_end_index > -1 {
+				f.Write(jointChar[:file_end_index])
+				f.Close()
+				jointChar = jointChar[file_end_index+2:]
+				continue
+			}
+			// 当未找到文件头任何可识别部分时，将上一块文件流进行写入
+			if header_start_index == -1 && file_end_index == -3 {
+				if al := len(jointChar); al > read_len {
+					spaceIndex := al - read_len
+					f.Write(jointChar[:spaceIndex])
+					oldChar = jointChar[spaceIndex:]
+				} else {
+					oldChar = jointChar
+				}
+				break
+			}
+
+			// 文件头搜索以及解析
+			if header_start_index > -1 {
+				// 找不到请求头结束的标志则进行下一部分的拼接
+				header_end_index = header_start_index + bytes.Index(jointChar[header_start_index:], []byte("\r\n\r\n"))
+				if header_end_index == -1 {
+					oldChar = jointChar[header_start_index:]
+					break
+				}
+
+				header_bytes = jointChar[header_start_index+len(spaceCharacter.start) : header_end_index]
+
+				fileHeaderitem = FileHeader{}
+				fileHeaderitem.FormName, fileHeaderitem.Name, fileHeaderitem.ContentType = ParseHeader(header_bytes)
+				suffix := ""
+				if arr := strings.Split(fileHeaderitem.Name, "."); len(arr) == 2 {
+					suffix = arr[1]
+				}
+				f = createFileStream(suffix, &fileHeaderitem)
+
+				fileHeader = append(fileHeader, fileHeaderitem)
+
+				// 更新拼接字符串，删除文件头部分 添加 \r\n\r\n 长度
+				jointChar = jointChar[header_end_index+4:]
+			} else {
+				break
+			}
+		}
+
+		// 读取完成
+		if isEnd {
+			break
 		}
 	}
 
