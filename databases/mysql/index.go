@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2023-01-12 19:44:43
+ * @LastEditTime: 2023-01-16 20:09:07
  */
 package mysql
 
@@ -19,7 +19,7 @@ import (
 
 var db *gorm.DB
 
-func initDb() {
+func init() {
 	// "user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 
 	// newLogger := logger.New(
@@ -59,15 +59,9 @@ func initDb() {
 }
 
 func GetContentByTable(tableName string) *gorm.DB {
-	if db == nil {
-		initDb()
-	}
 	return db.Table(tableName)
 }
 
 func GetDB() *gorm.DB {
-	if db == nil {
-		initDb()
-	}
 	return db
 }
