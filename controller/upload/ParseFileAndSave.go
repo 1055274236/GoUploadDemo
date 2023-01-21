@@ -2,7 +2,7 @@
  * @Description:
  * @Autor: Ming
  * @LastEditors: Ming
- * @LastEditTime: 2023-01-12 16:47:34
+ * @LastEditTime: 2023-01-21 11:51:03
  */
 package upload
 
@@ -33,11 +33,7 @@ func createFileStream(suffix string, fileHeaderItem *FileHeader) *os.File {
 	// 文件夹地址
 	fileDir := path.Join(config.StaticFileDir, fileHeaderItem.Folder)
 	// 加后缀之后的文件名
-	if suffix != "" {
-		fileHeaderItem.FileName = fileName + "." + suffix
-	} else {
-		fileHeaderItem.FileName = fileName
-	}
+	fileHeaderItem.FileName = fileName + suffix
 	// 文件储存地址
 	fileHeaderItem.FilePath = path.Join(fileDir, fileHeaderItem.FileName)
 
@@ -46,7 +42,7 @@ func createFileStream(suffix string, fileHeaderItem *FileHeader) *os.File {
 	f, err := os.Create(fileHeaderItem.FilePath)
 	if err != nil {
 		log.Println("文件创建失败: ", err)
-		return nil
+		panic(err)
 	}
 
 	return f
@@ -167,11 +163,7 @@ func ParseFileAndSave(c *gin.Context, boundary []byte) ([]FileHeader, error) {
 
 				fileHeaderitem = FileHeader{}
 				fileHeaderitem.FormName, fileHeaderitem.Name, fileHeaderitem.ContentType = ParseHeader(header_bytes)
-				suffix := ""
-				if arr := strings.Split(fileHeaderitem.Name, "."); len(arr) == 2 {
-					suffix = arr[1]
-				}
-				f = createFileStream(suffix, &fileHeaderitem)
+				f = createFileStream(path.Ext(fileHeaderitem.Name), &fileHeaderitem)
 
 				fileHeader = append(fileHeader, fileHeaderitem)
 
