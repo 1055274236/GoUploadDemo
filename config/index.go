@@ -8,18 +8,14 @@ package config
 
 import (
 	"path"
-	"runtime"
 
 	"github.com/gin-gonic/gin"
 )
 
-var _, rootPath, _, _ = runtime.Caller(0)
-
 var (
 	// File
-	RootPath             = path.Dir(path.Dir(rootPath))
-	StaticFileDir        = path.Join(RootPath, "static")
-	GinLogFile           = path.Join(RootPath, "gin.log")
+	StaticFileDir        = path.Join(".", "static")
+	GinLogFile           = path.Join(".", "gin.log")
 	FileChunkSize        = 12288       // 文件读取块大小 1024 * 12
 	FileContentMaxLength = 32212254720 // 30G 1024 * 1024 * 1024 * 30
 
